@@ -1,0 +1,289 @@
+with clean_wbdata as 
+(
+	SELECT 
+		series_id,
+		CASE 
+			WHEN country_code = 'DZA' THEN 'ALG'
+			WHEN country_code = 'ASM' THEN 'ASA'
+			WHEN country_code = 'AGO' THEN 'ANG'
+			WHEN country_code = 'ATG' THEN 'ANT'
+			WHEN country_code = 'ABW' THEN 'ARU'
+			WHEN country_code = 'BHS' THEN 'BAH'
+			WHEN country_code = 'BHR' THEN 'BRN'
+			WHEN country_code = 'BGD' THEN 'BAN'
+			WHEN country_code = 'BRB' THEN 'BAR'
+			WHEN country_code = 'BLZ' THEN 'BIZ'
+			WHEN country_code = 'BMU' THEN 'BER'
+			WHEN country_code = 'BTN' THEN 'BHU'
+			WHEN country_code = 'BWA' THEN 'BOT'
+			WHEN country_code = 'BGR' THEN 'BUL'
+			WHEN country_code = 'BFA' THEN 'BUR'
+			WHEN country_code = 'KHM' THEN 'CAM'
+			WHEN country_code = 'CYM' THEN 'CAY'
+			WHEN country_code = 'TCD' THEN 'CHA'
+			WHEN country_code = 'CHL' THEN 'CHI'
+			WHEN country_code = 'CHI' THEN 'XXX'
+			WHEN country_code = 'CRI' THEN 'CRC'
+			WHEN country_code = 'HRV' THEN 'CRO'
+			WHEN country_code = 'CUW' THEN 'AHO'
+			WHEN country_code = 'DNK' THEN 'DEN'
+			WHEN country_code = 'SLV' THEN 'ESA'
+			WHEN country_code = 'GNQ' THEN 'GEQ'
+			WHEN country_code = 'FJI' THEN 'FIJ'
+			WHEN country_code = 'GMB' THEN 'GAM'
+			WHEN country_code = 'GRD' THEN 'GRN'
+			WHEN country_code = 'GTM' THEN 'GUA'
+			WHEN country_code = 'GIN' THEN 'GUI'
+			WHEN country_code = 'GNB' THEN 'GBS'
+			WHEN country_code = 'HTI' THEN 'HAI'
+			WHEN country_code = 'HND' THEN 'HON'
+			WHEN country_code = 'IDN' THEN 'INA'
+			WHEN country_code = 'IRN' THEN 'IRI'
+			WHEN country_code = 'XKX' THEN 'KOS'
+			WHEN country_code = 'KWT' THEN 'KUW'
+			WHEN country_code = 'LAV' THEN 'LAT'
+			WHEN country_code = 'LSO' THEN 'LES'
+			WHEN country_code = 'LBY' THEN 'LBA'
+			WHEN country_code = 'MDG' THEN 'MAD'
+			WHEN country_code = 'MYS' THEN 'MAL'
+			WHEN country_code = 'MRT' THEN 'MTN'
+			WHEN country_code = 'MUS' THEN 'MRI'
+			WHEN country_code = 'MDA' THEN 'MDA'
+			WHEN country_code = 'MCO' THEN 'MON'
+			WHEN country_code = 'MNG' THEN 'MLG'
+			WHEN country_code = 'MMR' THEN 'MYA'
+			WHEN country_code = 'NPL' THEN 'NEP'
+			WHEN country_code = 'NLD' THEN 'NED'
+			WHEN country_code = 'NIC' THEN 'NCA'
+			WHEN country_code = 'NER' THEN 'NIG'
+			WHEN country_code = 'NGA' THEN 'NGR'
+			WHEN country_code = 'OMN' THEN 'MOA'
+			WHEN country_code = 'PRY' THEN 'PAR'
+			WHEN country_code = 'PHL' THEN 'PHI'
+			WHEN country_code = 'PRT' THEN 'POR'
+			WHEN country_code = 'PRI' THEN 'PUR'
+			WHEN country_code = 'WSM' THEN 'SAM'
+			WHEN country_code = 'SAU' THEN 'KSA'
+			WHEN country_code = 'SYC' THEN 'SEY'
+			WHEN country_code = 'SGP' THEN 'SIN'
+			WHEN country_code = 'SVN' THEN 'SLB'
+			WHEN country_code = 'LKA' THEN 'SRI'
+			WHEN country_code = 'SDN' THEN 'SUD'
+			WHEN country_code = 'CHE' THEN 'SUI'
+			WHEN country_code = 'TJK' THEN 'TZA'
+			WHEN country_code = 'TGO' THEN 'TOG'
+			WHEN country_code = 'TON' THEN 'TGA'
+			WHEN country_code = 'ARE' THEN 'UAE'
+			WHEN country_code = 'URY' THEN 'URU'
+			WHEN country_code = 'VUT' THEN 'VAN'
+			WHEN country_code = 'VIR' THEN 'IVB'
+			WHEN country_code = 'ZMB' THEN 'ZAM'
+			WHEN country_code = 'ZWE' THEN 'ZIM'
+			ELSE country_code 
+		end as country_code,
+		country_name,
+		year,
+		value
+	FROM wbdata
+
+),
+
+
+events as
+	(SELECT 
+	 	distinct "NOC",
+		"Games",
+		"Sport",
+		"Event",
+		"Medal"
+	FROM athlete_events
+	WHERE "Year" > 2001
+		AND "Season" = 'Summer'
+	),
+	
+total_medals as 
+	(
+	SELECT
+		"NOC"
+		, count(*) FILTER (WHERE "Medal" = 'Gold') AS gold_medals
+     	, count(*) FILTER (WHERE "Medal" = 'Silver') AS silver_medals
+     	, count(*) FILTER (WHERE "Medal" = 'Bronze') AS bronze_medals
+		, "Games"
+	FROM events
+	GROUP BY "NOC", "Games"
+	),
+
+
+filtered_olympic_countries as (
+	
+	SELECT part."NOC", part.gold_medals, part.silver_medals, part.bronze_medals, 
+		(RTRIM(part."Games", ' Summer')::INTEGER) -1 as games
+	FROM (SELECT 
+			*
+			, COUNT(*) OVER (PARTITION BY "NOC") as participations
+			, SUM(gold_medals) OVER (PARTITION BY "NOC") as total_gold
+			, SUM(silver_medals) OVER (PARTITION BY "NOC") as total_silver
+			, SUM(bronze_medals) OVER (PARTITION BY "NOC") as total_bronze
+		 	, ROW_NUMBER() OVER (PARTITION BY "NOC", "Games") as n
+		FROM total_medals) part
+	WHERE participations = 4 AND total_gold+total_silver+total_bronze>0 AND n=1
+	),
+
+joined_wbdata as (
+	SELECT 
+		wb.*
+		,wbm.name
+	FROM clean_wbdata wb
+	INNER JOIN wbmetadata wbm ON wb.series_id = wbm.series_id
+	INNER JOIN filtered_olympic_countries oc ON wb.country_code = oc."NOC"
+	WHERE wb.year IN (2003, 2007, 2011, 2015)
+),
+
+filter_series_id as 
+	(SELECT part.series_id
+		FROM (SELECT 
+		series_id,
+		COUNT(distinct country_code) as countries,
+		COUNT(distinct year) as years
+	FROM joined_wbdata 
+	GROUP BY series_id) part
+WHERE part.years=4 and countries IN (94, 95, 93)
+ORDER BY part.countries desc),
+
+
+--calcular coisas para 2020
+
+
+
+
+-- unir a tabela para filtrar 
+final_table as (SELECT distinct jwb.*
+FROM joined_wbdata jwb INNER JOIN filter_series_id as fid ON jwb.series_id=fid.series_id
+WHERE jwb.series_id IN (
+		'AG.LND.AGRI.ZS'	,
+		'AG.PRD.CROP.XD'	,	
+		'AG.PRD.LVSK.XD'	,	
+		'AG.SRF.TOTL.K2'	,	
+		'BX.KLT.DINV.CD.WD'	,
+		'EG.ELC.ACCS.ZS'	,
+		'EG.ELC.RNEW.ZS'	,
+		'EN.POP.DNST'		,
+		'IP.JRN.ARTC.SC'	,
+		'IT.CEL.SETS.P2'	,
+		'IT.NET.BBND.P2'	,
+		'IT.NET.USER.ZS'	,
+		'MS.MIL.TOTL.TF.ZS'	,
+		'NV.AGR.TOTL.ZS'	,
+		'NY.ADJ.AEDU.CD'	,
+		'NV.IND.TOTL.ZS'	,
+		'NY.GDP.DEFL.KD.ZG'	,
+		'NY.GDP.MKTP.CD'	,
+		'NY.GDP.PCAP.CD'	,
+		'SE.COM.DURS'		,
+		'SH.ANM.CHLD.ZS'	,	
+		'SH.STA.BASS.ZS'	,	
+		'SH.H2O.BASW.ZS'	,	
+		'SH.STA.ODFC.ZS'	,	
+		'SH.STA.SUIC.P5'	,		
+		'SH.STA.TRAF.P5'	,	
+		'SH.TBS.INCD'		,
+		'SL.EMP.1524.SP.ZS'	,	
+		'SL.EMP.WORK.ZS'	,
+		'SM.POP.REFG.OR'	,
+		'SP.ADO.TFRT'		,
+		'SP.DYN.CBRT.IN'	,
+		'SP.DYN.CDRT.IN'	,
+		'SP.RUR.TOTL.ZS'	,
+		'SP.URB.TOTL.IN.ZS'	,
+		'ST.INT.RCPT.CD'	,
+		'TM.QTY.MRCH.XD.WD'	,
+		'TX.QTY.MRCH.XD.WD')
+order by jwb.series_id)
+
+
+select * from wbmetadata 
+WHERE series_id IN (
+		'AG.LND.AGRI.ZS'	,
+		'AG.PRD.CROP.XD'	,	
+		'AG.PRD.LVSK.XD'	,	
+		'AG.SRF.TOTL.K2'	,	
+		'BX.KLT.DINV.CD.WD'	,
+		'EG.ELC.ACCS.ZS'	,
+		'EG.ELC.RNEW.ZS'	,
+		'EN.POP.DNST'		,
+		'IP.JRN.ARTC.SC'	,
+		'IT.CEL.SETS.P2'	,
+		'IT.NET.BBND.P2'	,
+		'IT.NET.USER.ZS'	,
+		'MS.MIL.TOTL.TF.ZS'	,
+		'NV.AGR.TOTL.ZS'	,
+		'NY.ADJ.AEDU.CD'	,
+		'NV.IND.TOTL.ZS'	,
+		'NY.GDP.DEFL.KD.ZG'	,
+		'NY.GDP.MKTP.CD'	,
+		'NY.GDP.PCAP.CD'	,
+		'SE.COM.DURS'		,
+		'SH.ANM.CHLD.ZS'	,	
+		'SH.STA.BASS.ZS'	,	
+		'SH.H2O.BASW.ZS'	,	
+		'SH.STA.ODFC.ZS'	,	
+		'SH.STA.SUIC.P5'	,		
+		'SH.STA.TRAF.P5'	,	
+		'SH.TBS.INCD'		,
+		'SL.EMP.1524.SP.ZS'	,	
+		'SL.EMP.WORK.ZS'	,
+		'SM.POP.REFG.OR'	,
+		'SP.ADO.TFRT'		,
+		'SP.DYN.CBRT.IN'	,
+		'SP.DYN.CDRT.IN'	,
+		'SP.RUR.TOTL.ZS'	,
+		'SP.URB.TOTL.IN.ZS'	,
+		'ST.INT.RCPT.CD'	,
+		'TM.QTY.MRCH.XD.WD'	,
+		'TX.QTY.MRCH.XD.WD')
+
+/*
+SELECT cwd.* 
+FROM clean_wbdata cwd
+INNER JOIN (SELECT DISTINCT country_code from final_table) ft ON cwd.country_code = ft.country_code
+WHERE cwd.series_id IN (
+		'AG.LND.AGRI.ZS'	,
+		'AG.PRD.CROP.XD'	,	
+		'AG.PRD.LVSK.XD'	,	
+		'AG.SRF.TOTL.K2'	,	
+		'BX.KLT.DINV.CD.WD'	,
+		'EG.ELC.ACCS.ZS'	,
+		'EG.ELC.RNEW.ZS'	,
+		'EN.POP.DNST'		,
+		'IP.JRN.ARTC.SC'	,
+		'IT.CEL.SETS.P2'	,
+		'IT.NET.BBND.P2'	,
+		'IT.NET.USER.ZS'	,
+		'MS.MIL.TOTL.TF.ZS'	,
+		'NV.AGR.TOTL.ZS'	,
+		'NY.ADJ.AEDU.CD'	,
+		'NV.IND.TOTL.ZS'	,
+		'NY.GDP.DEFL.KD.ZG'	,
+		'NY.GDP.MKTP.CD'	,
+		'NY.GDP.PCAP.CD'	,
+		'SE.COM.DURS'		,
+		'SH.ANM.CHLD.ZS'	,	
+		'SH.STA.BASS.ZS'	,	
+		'SH.H2O.BASW.ZS'	,	
+		'SH.STA.ODFC.ZS'	,	
+		'SH.STA.SUIC.P5'	,		
+		'SH.STA.TRAF.P5'	,	
+		'SH.TBS.INCD'		,
+		'SL.EMP.1524.SP.ZS'	,	
+		'SL.EMP.WORK.ZS'	,
+		'SM.POP.REFG.OR'	,
+		'SP.ADO.TFRT'		,
+		'SP.DYN.CBRT.IN'	,
+		'SP.DYN.CDRT.IN'	,
+		'SP.RUR.TOTL.ZS'	,
+		'SP.URB.TOTL.IN.ZS'	,
+		'ST.INT.RCPT.CD'	,
+		'TM.QTY.MRCH.XD.WD'	,
+		'TX.QTY.MRCH.XD.WD')
+AND cwd.year = 2019
+*/
